@@ -106,7 +106,12 @@ function showWhaleAlert(alert) {
     whaleCountEl.textContent = whaleAlerts.length;
     updateAlertsList();
 
-    document.getElementById('whaleAmount').textContent = `$${(alert.value / 1000000).toFixed(2)}M`;
+    if(alert.value/1000 <= 1000){
+        document.getElementById('whaleAmount').textContent = `$${(alert.value / 1000).toFixed(2)}K`;
+    }
+    else{
+        document.getElementById('whaleAmount').textContent = `$${(alert.value / 1000000).toFixed(2)}M`;
+    }
     document.getElementById('whaleTime').textContent = new Date(alert.timestamp).toLocaleTimeString();
     
     whaleModal.classList.remove('hidden');
