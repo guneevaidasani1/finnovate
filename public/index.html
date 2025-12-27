@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crypto Whale Alert Dashboard</title>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 100%);
+            color: #fff;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .logo-section {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .bitcoin-logo {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            border: 2px solid #f7931a;
+            padding: 5px;
+            background: rgba(247, 147, 26, 0.1);
+        }
+
+        .title h1 {
+            color: #f7931a;
+            font-size: 2.5rem;
+            margin-bottom: 5px;
+        }
+
+        .title p {
+            color: #aaa;
+            font-size: 1rem;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 15px;
+            padding: 25px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: transform 0.3s ease, border-color 0.3s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+            border-color: #f7931a;
+        }
+
+        .stat-card h3 {
+            color: #aaa;
+            font-size: 0.9rem;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .stat-card .value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #fff;
+        }
+
+        .stat-card .value.large {
+            color: #f7931a;
+        }
+
+        .charts-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        @media (max-width: 1024px) {
+            .charts-container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .chart-card {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 15px;
+            padding: 25px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .chart-card h2 {
+            color: #f7931a;
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 300px;
+            width: 100%;
+        }
+
+        .alerts-panel {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 15px;
+            padding: 25px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            margin-bottom: 30px;
+        }
+
+        .alerts-panel h2 {
+            color: #f7931a;
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+        }
+
+        .alerts-list {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .alert-item {
+            background: rgba(255, 59, 59, 0.1);
+            border: 1px solid rgba(255, 59, 59, 0.3);
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 10px;
+            animation: pulse 2s infinite;
+        }
+
+        .alert-item .time {
+            color: #aaa;
+            font-size: 0.8rem;
+            margin-bottom: 5px;
+        }
+
+        .alert-item .message {
+            color: #ff3b3b;
+            font-weight: bold;
+            font-size: 1.1rem;
+        }
+
+        .whale-modal {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.95);
+            border: 3px solid #ff3b3b;
+            border-radius: 20px;
+            padding: 40px;
+            z-index: 1000;
+            text-align: center;
+            animation: flash 1s infinite;
+            display: none;
+            min-width: 400px;
+            backdrop-filter: blur(20px);
+        }
+
+        .whale-modal h2 {
+            color: #ff3b3b;
+            font-size: 2.5rem;
+            margin-bottom: 20px;
+        }
+
+        .whale-modal p {
+            color: #fff;
+            font-size: 1.2rem;
+            margin-bottom: 10px;
+        }
+
+        .close-modal {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: none;
+            border: none;
+            color: #fff;
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 5px 10px;
+            border-radius: 50%;
+            transition: background 0.3s ease;
+        }
+
+        .close-modal:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 999;
+            display: none;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.7; }
+            100% { opacity: 1; }
+        }
+
+        @keyframes flash {
+            0%, 100% { border-color: #ff3b3b; box-shadow: 0 0 20px rgba(255, 59, 59, 0.5); }
+            50% { border-color: #ff6b6b; box-shadow: 0 0 40px rgba(255, 59, 59, 0.8); }
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 10px;
+            animation: pulse 2s infinite;
+        }
+
+        .status-connected {
+            background: #00ff00;
+        }
+
+        .footer {
+            text-align: center;
+            color: #666;
+            padding: 20px;
+            font-size: 0.9rem;
+            margin-top: 30px;
+        }
+    </style>
+</head>
+<body>
+    <div class="overlay" id="overlay"></div>
+    
+    <div class="whale-modal" id="whaleModal">
+        <button class="close-modal" onclick="closeWhaleModal()">×</button>
+        <h2>🚨 WHALE DETECTED! 🚨</h2>
+        <p id="whaleAmount"></p>
+        <p id="whaleTime"></p>
+        <p style="color: #aaa; margin-top: 20px;">Large sell pressure detected</p>
+    </div>
+
+    <div class="container">
+        <div class="header">
+            <div class="logo-section">
+                <img id="bitcoinLogo" class="bitcoin-logo" src="" alt="Bitcoin Logo">
+                <div class="title">
+                    <h1>🐋 Crypto Whale Alert</h1>
+                    <p>Real-time monitoring of large BTC/USDT trades</p>
+                </div>
+            </div>
+            <div class="status">
+                <span class="status-indicator status-connected"></span>
+                <span id="connectionStatus">Connected to Binance</span>
+            </div>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <h3>Current Price</h3>
+                <div class="value" id="currentPrice">Loading...</div>
+            </div>
+            <div class="stat-card">
+                <h3>Last Trade Volume</h3>
+                <div class="value" id="lastVolume">Loading...</div>
+            </div>
+            <div class="stat-card">
+                <h3>Whale Trades (Last Hour)</h3>
+                <div class="value large" id="whaleCount">0</div>
+            </div>
+            <div class="stat-card">
+                <h3>Total Volume (Last 60min)</h3>
+                <div class="value" id="totalVolume">Loading...</div>
+            </div>
+        </div>
+
+        <div class="charts-container">
+            <div class="chart-card">
+                <h2>Price Movement (Last 60 Minutes)</h2>
+                <div class="chart-container">
+                    <canvas id="priceChart"></canvas>
+                </div>
+            </div>
+            <div class="chart-card">
+                <h2>Trade Volume (Last 60 Minutes)</h2>
+                <div class="chart-container">
+                    <canvas id="volumeChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="alerts-panel">
+            <h2>Recent Whale Alerts</h2>
+            <div class="alerts-list" id="alertsList">
+                <div class="alert-item">
+                    <div class="time">Waiting for data...</div>
+                    <div class="message">System initializing</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>Monitoring BTC/USDT trades on Binance | Whale threshold: $500,000</p>
+            <p>Data updates in real-time | Last updated: <span id="lastUpdate">-</span></p>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
