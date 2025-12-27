@@ -15,7 +15,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 // --- CONFIGURATION ---
 const THROTTLE_MS = 1000;            
 const MIN_VOLUME_THRESHOLD = 500;   
-const WHALE_THRESHOLD = 500000;      
+let whaleThreshold = 500000; // Changed to 'let' to allow dynamic updates
 // --------------------
 
 let tradeBuffer = []; 
@@ -23,13 +23,12 @@ let tradeHistory = { timestamps: [], prices: [], volumes: [] };
 
 function updateTradeHistory(trade) {
     const now = Date.now();
-    const sixtyMinutesAgo = now - (60 * 60 * 1000); // 60 Minute Window
+    const sixtyMinutesAgo = now - (60 * 60 * 1000);
 
     tradeHistory.timestamps.push(now);
     tradeHistory.prices.push(trade.price);
     tradeHistory.volumes.push(trade.value);
 
-    // Prune data older than 60 minutes
     while (tradeHistory.timestamps.length > 0 && tradeHistory.timestamps[0] < sixtyMinutesAgo) {
         tradeHistory.timestamps.shift();
         tradeHistory.prices.shift();
@@ -58,7 +57,8 @@ binanceSocket.on('message', (data) => {
         updateTradeHistory(tradeData);
         tradeBuffer.push(tradeData);
 
-        if (usdValue >= WHALE_THRESHOLD) {
+        // Uses the dynamic threshold from the slider
+        if (usdValue >= whaleThreshold) {
             io.emit('whale_alert', {
                 value: usdValue,
                 timestamp: tradeData.timestamp
@@ -83,7 +83,14 @@ setInterval(() => {
 }, THROTTLE_MS);
 
 io.on('connection', (socket) => {
+    console.log(`Client connected: ${socket.id}`);
     socket.emit('history_update', tradeHistory);
+
+    // Listen for threshold updates from the frontend slider
+    socket.on('threshold_update', (newVal) => {
+        whaleThreshold = newVal;
+        console.log(`Global Whale Threshold updated to: $${whaleThreshold}`);
+    });
 });
 
 const PORT = process.env.PORT || 3000;

@@ -13,6 +13,11 @@ const lastUpdateEl = document.getElementById('lastUpdate');
 const whaleModal = document.getElementById('whaleModal');
 const overlay = document.getElementById('overlay');
 
+// Slider Elements
+const whaleSlider = document.getElementById('whaleSlider');
+const thresholdDisplay = document.getElementById('thresholdDisplay');
+const ledgerThreshold = document.getElementById('ledgerThreshold');
+
 async function fetchCoinLogo() {
     try {
         const response = await fetch('https://api.coingecko.com/api/v3/coins/bitcoin');
@@ -86,7 +91,6 @@ function initializeCharts() {
 }
 
 function updateCharts(timestamps, prices, volumes) {
-    // 60-Minute Rolling Window labels
     const labels = timestamps.map(ts => {
         const date = new Date(ts);
         return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
@@ -157,6 +161,15 @@ function updateStats(trade) {
     lastUpdateEl.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 }
 
+// Slider handling
+whaleSlider.addEventListener('input', (e) => {
+    const val = parseInt(e.target.value);
+    const formatted = `$${val.toLocaleString()}`;
+    thresholdDisplay.textContent = formatted;
+    ledgerThreshold.textContent = `Institutional Threshold: > ${formatted} USD`;
+    socket.emit('threshold_update', val);
+});
+
 socket.on('trade_update', (trade) => updateStats(trade));
 socket.on('whale_alert', (alert) => showWhaleAlert(alert));
 socket.on('history_update', (history) => {
@@ -166,7 +179,6 @@ socket.on('history_update', (history) => {
         totalVolumeEl.textContent = `$${(total / 1000000).toFixed(2)}M`;
     }
     else{
-
         totalVolumeEl.textContent = `$${(total / 1000).toFixed(2)}K`;
     }
 });

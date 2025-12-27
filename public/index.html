@@ -34,6 +34,30 @@
         .status-dot { width: 6px; height: 6px; border-radius: 50%; background: #10b981; }
         ::-webkit-scrollbar { width: 4px; }
         ::-webkit-scrollbar-thumb { background: var(--border); }
+
+        /* Custom styling for the range slider to match the theme */
+        input[type=range] {
+            -webkit-appearance: none;
+            background: transparent;
+        }
+        input[type=range]:focus {
+            outline: none;
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 2px;
+            cursor: pointer;
+            background: #E5E5E1;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            height: 12px;
+            width: 12px;
+            border-radius: 50%;
+            background: #1A1A1A;
+            cursor: pointer;
+            -webkit-appearance: none;
+            margin-top: -5px;
+        }
     </style>
 </head>
 <body class="min-h-screen">
@@ -62,17 +86,27 @@
                     <section>
                         <span class="text-[10px] font-semibold text-zinc-400 uppercase tracking-[0.2em] block mb-4">Intelligence</span>
                         <div class="space-y-4">
-                            <button onclick="window.scrollTo({top: 0, behavior: 'smooth'})" class="flex items-center gap-3 text-sm font-medium hover:text-zinc-600 transition-colors w-full">
+                            <button onclick="window.scrollTo({top: 0, behavior: 'smooth'})" class="flex items-center gap-3 text-sm font-medium hover:text-zinc-600 transition-colors w-full text-left">
                                 <i data-lucide="bar-chart-3" class="w-4 h-4"></i> Overview
                             </button>
-                            <button onclick="document.getElementById('activityFeed').scrollIntoView({behavior: 'smooth'})" class="flex items-center gap-3 text-sm text-zinc-400 hover:text-black transition-colors w-full">
+                            <button onclick="document.getElementById('activityFeed').scrollIntoView({behavior: 'smooth'})" class="flex items-center gap-3 text-sm text-zinc-400 hover:text-black transition-colors w-full text-left">
                                 <i data-lucide="activity" class="w-4 h-4"></i> Order Flow
                             </button>
                         </div>
                     </section>
-                </nav>
 
-                
+                    <section class="pt-8 border-t border-zinc-100">
+                        <span class="text-[10px] font-semibold text-zinc-400 uppercase tracking-[0.2em] block mb-4">Configuration</span>
+                        <div class="space-y-4">
+                            <div class="flex justify-between items-center mb-1">
+                                <label class="text-[10px] text-zinc-500 uppercase">Whale Limit</label>
+                                <span id="thresholdDisplay" class="text-xs font-mono font-bold">$500,000</span>
+                            </div>
+                            <input type="range" id="whaleSlider" min="1000" max="1000000" step="1000" value="500000" class="w-full">
+                            <p class="text-[9px] text-zinc-400 italic leading-tight">Dynamic alert filtering based on USD trade value.</p>
+                        </div>
+                    </section>
+                </nav>
             </div>
 
             <div class="pt-8 border-t border-zinc-100">
@@ -144,7 +178,7 @@
             <div id="activityFeed" class="spa-card rounded-2xl overflow-hidden">
                 <div class="px-8 py-6 border-b border-zinc-100 flex justify-between items-center">
                     <h3 class="text-sm font-semibold uppercase tracking-widest">Order Flow Alert Ledger</h3>
-                    <span class="text-[10px] text-zinc-400 italic">Institutional Threshold: > $500,000 USD</span>
+                    <span id="ledgerThreshold" class="text-[10px] text-zinc-400 italic">Institutional Threshold: > $500,000 USD</span>
                 </div>
                 <div id="alertsList" class="divide-y divide-zinc-50">
                     <div class="p-8 text-center text-zinc-300 text-sm">Synchronizing with Binance order flow...</div>
