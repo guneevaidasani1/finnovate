@@ -105,6 +105,32 @@ function updateCharts(timestamps, prices, volumes) {
     volumeChart.update('none');
 }
 
+/**
+ * UPDATED: Helper function to synchronize UI elements with the threshold value
+ */
+function applyThreshold(val) {
+    const formatted = `$${val.toLocaleString()}`;
+    if (thresholdDisplay) thresholdDisplay.textContent = formatted;
+    if (ledgerThreshold) {
+        ledgerThreshold.textContent = `Institutional Threshold: > ${formatted} USD`;
+    }
+    if (whaleSlider) whaleSlider.value = val;
+}
+
+/**
+ * UPDATED: Slider event listener with LocalStorage persistence
+ */
+whaleSlider.addEventListener('input', (e) => {
+    const val = parseInt(e.target.value);
+    applyThreshold(val);
+    
+    // Save to LocalStorage for persistence across refreshes
+    localStorage.setItem('whaleThreshold', val);
+    
+    // Notify server of the new threshold
+    socket.emit('threshold_update', val);
+});
+
 function showWhaleAlert(alert) {
     whaleAlerts.unshift(alert);
     whaleCountEl.textContent = whaleAlerts.length;
@@ -161,15 +187,6 @@ function updateStats(trade) {
     lastUpdateEl.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 }
 
-// Slider handling
-whaleSlider.addEventListener('input', (e) => {
-    const val = parseInt(e.target.value);
-    const formatted = `$${val.toLocaleString()}`;
-    thresholdDisplay.textContent = formatted;
-    ledgerThreshold.textContent = `Institutional Threshold: > ${formatted} USD`;
-    socket.emit('threshold_update', val);
-});
-
 socket.on('trade_update', (trade) => updateStats(trade));
 socket.on('whale_alert', (alert) => showWhaleAlert(alert));
 socket.on('history_update', (history) => {
@@ -183,8 +200,19 @@ socket.on('history_update', (history) => {
     }
 });
 
+
 window.onload = () => {
     fetchCoinLogo();
     initializeCharts();
     overlay.addEventListener('click', closeWhaleModal);
+
+    
+    const savedThreshold = localStorage.getItem('whaleThreshold');
+    if (savedThreshold) {
+        const val = parseInt(savedThreshold);
+        applyThreshold(val);
+        
+        
+        socket.emit('threshold_update', val);
+    }
 };
