@@ -1,6 +1,6 @@
-process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'; // For Dev only
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'; 
 
-// --- IMPORTS ---
+
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
@@ -13,26 +13,25 @@ const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const bcrypt = require('bcryptjs');
 const bodyParser = require('body-parser');
 
-// --- APP & SERVER SETUP ---
+
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-// --- CONFIGURATION ---
 const THROTTLE_MS = 1000;
 const MIN_VOLUME_THRESHOLD = 500;
-let whaleThreshold = 500000; // Dynamic
+let whaleThreshold = 500000; 
 
-// --- TRADING STATE ---
+
 let tradeBuffer = [];
 let tradeHistory = { timestamps: [], prices: [], volumes: [] };
 let currentSymbol = 'btcusdt';
 let binanceSocket = null;
 
-// --- AUTH DATABASE (In-Memory) ---
+
 const users = [];
 
-// --- MIDDLEWARE ---
+
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(session({
     secret: 'finnovate-secret-key',
