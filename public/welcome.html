@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WhaleWatch | Access Terminal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,600;1,600&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #F9F9F8; color: #1A1A1A; }
+        .serif { font-family: 'Playfair Display', serif; }
+        .input-field {
+            background: transparent;
+            border-bottom: 1px solid #E5E5E1;
+            transition: border-color 0.3s ease;
+        }
+        .input-field:focus {
+            outline: none;
+            border-bottom-color: #1A1A1A;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-6">
+
+    <div class="w-full max-w-[1000px] bg-white border border-[#E5E5E1] shadow-xl rounded-2xl overflow-hidden flex flex-col md:flex-row min-h-[600px]">
+        
+        <div class="md:w-1/2 bg-[#1A1A1A] text-white p-12 flex flex-col justify-between relative overflow-hidden">
+            <div class="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-5"></div>
+            
+            <div class="relative z-10">
+                <div class="flex items-center gap-3 mb-8">
+                    <div class="w-8 h-8 bg-white text-black flex items-center justify-center rounded-sm">
+                        <i data-lucide="waves" class="w-5 h-5"></i>
+                    </div>
+                    <span class="font-bold tracking-tight">WhaleWatch</span>
+                </div>
+                <h1 class="serif text-4xl md:text-5xl leading-tight mb-6">Market clarity<br>defined.</h1>
+                <p class="text-gray-400 font-light text-sm leading-relaxed max-w-xs">
+                    Access institutional-grade Bitcoin liquidity monitoring. Track significant inflows with Swiss precision.
+                </p>
+            </div>
+
+            <div class="relative z-10 flex gap-4 text-[10px] uppercase tracking-widest text-gray-500">
+                <span>Real-time</span>
+                <span>•</span>
+                <span>Secure</span>
+                <span>•</span>
+                <span>Encrypted</span>
+            </div>
+        </div>
+
+        <div class="md:w-1/2 p-12 flex flex-col justify-center bg-white relative">
+            
+            <div id="authForms">
+                <div class="flex gap-8 mb-10 text-sm">
+                    <button onclick="toggleForm('login')" id="tabLogin" class="font-semibold border-b-2 border-black pb-1 transition-all">Sign In</button>
+                    <button onclick="toggleForm('register')" id="tabRegister" class="text-gray-400 border-b-2 border-transparent pb-1 hover:text-gray-600 transition-all">Register</button>
+                </div>
+
+                <form id="loginForm" action="/login" method="POST" class="space-y-6 block">
+                    <div>
+                        <label class="block text-[10px] uppercase tracking-widest text-gray-400 mb-2">Username</label>
+                        <input type="text" name="username" required class="input-field w-full py-2 text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] uppercase tracking-widest text-gray-400 mb-2">Password</label>
+                        <input type="password" name="password" required class="input-field w-full py-2 text-sm">
+                    </div>
+                    <button type="submit" class="w-full bg-[#1A1A1A] text-white py-3 rounded-lg text-xs font-bold tracking-widest hover:bg-gray-800 transition-all mt-4">
+                        ACCESS TERMINAL
+                    </button>
+                </form>
+
+                <form id="registerForm" action="/register" method="POST" class="space-y-6 hidden">
+                    <div>
+                        <label class="block text-[10px] uppercase tracking-widest text-gray-400 mb-2">Choose Username</label>
+                        <input type="text" name="username" required class="input-field w-full py-2 text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] uppercase tracking-widest text-gray-400 mb-2">Set Password</label>
+                        <input type="password" name="password" required class="input-field w-full py-2 text-sm">
+                    </div>
+                    <button type="submit" class="w-full bg-[#1A1A1A] text-white py-3 rounded-lg text-xs font-bold tracking-widest hover:bg-gray-800 transition-all mt-4">
+                        CREATE ACCOUNT
+                    </button>
+                </form>
+
+                <div class="relative my-8 text-center">
+                    <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-gray-100"></div></div>
+                    <span class="relative bg-white px-4 text-[10px] text-gray-400 uppercase tracking-widest">Or continue with</span>
+                </div>
+
+                <a href="/auth/google" class="flex items-center justify-center gap-3 w-full border border-gray-200 py-3 rounded-lg hover:bg-gray-50 transition-all group">
+                    <img src="https://www.gstatic.com/images/branding/product/1x/gsa_512dp.png" class="w-4 h-4 grayscale group-hover:grayscale-0 transition-all" alt="Google">
+                    <span class="text-xs font-medium text-gray-600">Google Account</span>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        lucide.createIcons();
+
+        function toggleForm(type) {
+            const loginForm = document.getElementById('loginForm');
+            const registerForm = document.getElementById('registerForm');
+            const tabLogin = document.getElementById('tabLogin');
+            const tabRegister = document.getElementById('tabRegister');
+
+            if (type === 'login') {
+                loginForm.classList.remove('hidden');
+                registerForm.classList.add('hidden');
+                tabLogin.classList.add('border-black', 'font-semibold', 'text-black');
+                tabLogin.classList.remove('border-transparent', 'text-gray-400');
+                tabRegister.classList.remove('border-black', 'font-semibold', 'text-black');
+                tabRegister.classList.add('border-transparent', 'text-gray-400');
+            } else {
+                loginForm.classList.add('hidden');
+                registerForm.classList.remove('hidden');
+                tabRegister.classList.add('border-black', 'font-semibold', 'text-black');
+                tabRegister.classList.remove('border-transparent', 'text-gray-400');
+                tabLogin.classList.remove('border-black', 'font-semibold', 'text-black');
+                tabLogin.classList.add('border-transparent', 'text-gray-400');
+            }
+        }
+    </script>
+</body>
+</html>
