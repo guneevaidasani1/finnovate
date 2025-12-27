@@ -1,4 +1,3 @@
-
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 
 const express = require('express');
@@ -11,8 +10,44 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-
 app.use(express.static(path.join(__dirname, 'public')));
+
+
+let tradeHistory = { 
+    timestamps: [], 
+    prices: [], 
+    volumes: [] 
+};
+
+//data older than 60 mins is washed
+function updateTradeHistory(trade) {
+    const now = Date.now();
+    const sixtyMinutesAgo = now - (60 * 60 * 1000);
+
+    // new data is added
+    tradeHistory.timestamps.push(now);
+    tradeHistory.prices.push(trade.price);
+    tradeHistory.volumes.push(trade.value);
+
+    // old data is fitlered
+    while (tradeHistory.timestamps.length > 0 && tradeHistory.timestamps[0] < sixtyMinutesAgo) {
+        tradeHistory.timestamps.shift();
+        tradeHistory.prices.shift();
+        tradeHistory.volumes.shift();
+    }
+
+    
+    io.emit('history_update', tradeHistory);
+}
+// -----------------------------
+
+app.get('/api/bitcoin-info', (req, res) => {
+    res.json({
+        name: 'Bitcoin',
+        symbol: 'BTC',
+        logo: 'https://cryptologos.cc/logos/bitcoin-btc-logo.png'
+    });
+});
 
 
 const options = {
@@ -38,20 +73,23 @@ binanceSocket.on('message', (data) => {
         const quantity = parseFloat(trade.q);
         const usdValue = price * quantity;
 
-        //send data to front end
-        io.emit('trade_update', {
+        const tradeData = {
             price,
             quantity,
             value: usdValue,
             timestamp: new Date().toISOString()
-        });
+        };
 
-        
+        // update history and total volume logic
+        updateTradeHistory(tradeData);
+
+        // send data to front end
+        io.emit('trade_update', tradeData);
+
         if (usdValue >= 500000) {
             const side = trade.m ? 'SELL' : 'BUY';
             const alertMsg = `🚨 [${side}] WHALE ALERT: $${usdValue.toLocaleString(undefined, {maximumFractionDigits: 0})}`;
             console.log(`\n${alertMsg}`);
-            
             
             io.emit('whale_alert', {
                 message: alertMsg,
@@ -62,6 +100,11 @@ binanceSocket.on('message', (data) => {
     } catch (err) {
         console.error("❌ Error parsing trade data:", err.message);
     }
+});
+
+// 
+io.on('connection', (socket) => {
+    socket.emit('history_update', tradeHistory);
 });
 
 binanceSocket.on('error', (err) => {
