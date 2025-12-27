@@ -21,6 +21,68 @@ let whaleThreshold = 500000; // Changed to 'let' to allow dynamic updates
 let tradeBuffer = []; 
 let tradeHistory = { timestamps: [], prices: [], volumes: [] };
 
+// Add a variable to track the current socket
+let currentSymbol = 'btcusdt';
+let binanceSocket = null;
+
+function connectToBinance(symbol) {
+    if (binanceSocket) {
+        binanceSocket.close();
+        // Clear history when switching coins
+        tradeHistory = { timestamps: [], prices: [], volumes: [] };
+    }
+
+    currentSymbol = symbol;
+    const url = `wss://stream.binance.com:9443/ws/${symbol}@trade`;
+    binanceSocket = new WebSocket(url);
+
+    binanceSocket.on('message', (data) => {
+        try {
+            const trade = JSON.parse(data);
+            const price = Number(trade.p);
+            const quantity = Number(trade.q);
+            const usdValue = price * quantity;
+
+            if (usdValue < MIN_VOLUME_THRESHOLD) return; 
+
+            const tradeData = {
+                price,
+                quantity,
+                value: usdValue,
+                timestamp: new Date().toISOString(),
+                symbol: symbol.toUpperCase()
+            };
+
+            updateTradeHistory(tradeData);
+            tradeBuffer.push(tradeData);
+
+            if (usdValue >= whaleThreshold) {
+                io.emit('whale_alert', {
+                    value: usdValue,
+                    timestamp: tradeData.timestamp,
+                    symbol: tradeData.symbol
+                });
+            }
+        } catch (err) {
+            console.error("Stream Error:", err.message);
+        }
+    });
+
+    console.log(`Subscribed to: ${symbol}`);
+}
+
+// Initialize with BTC
+connectToBinance('btcusdt');
+
+io.on('connection', (socket) => {
+    socket.emit('history_update', tradeHistory);
+    
+    // Listen for symbol changes from user
+    socket.on('change_symbol', (newSymbol) => {
+        connectToBinance(newSymbol);
+    });
+});
+
 function updateTradeHistory(trade) {
     const now = Date.now();
     const sixtyMinutesAgo = now - (60 * 60 * 1000);
@@ -36,7 +98,6 @@ function updateTradeHistory(trade) {
     }
 }
 
-const binanceSocket = new WebSocket('wss://stream.binance.com:9443/ws/btcusdt@trade');
 
 binanceSocket.on('message', (data) => {
     try {

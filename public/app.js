@@ -18,9 +18,9 @@ const whaleSlider = document.getElementById('whaleSlider');
 const thresholdDisplay = document.getElementById('thresholdDisplay');
 const ledgerThreshold = document.getElementById('ledgerThreshold');
 
-async function fetchCoinLogo() {
+async function fetchCoinLogo(coinId = 'bitcoin') {
     try {
-        const response = await fetch('https://api.coingecko.com/api/v3/coins/bitcoin');
+        const response = await fetch(`https://api.coingecko.com/api/v3/coins/${coinId}`);
         const data = await response.json();
         const logoImg = document.getElementById('coinLogo');
         const fallback = document.getElementById('logoFallback');
@@ -198,6 +198,25 @@ socket.on('history_update', (history) => {
     else{
         totalVolumeEl.textContent = `$${(total / 1000).toFixed(2)}K`;
     }
+});
+
+document.getElementById('coinSelector').addEventListener('change', (e) => {
+    const symbol = e.target.value;
+    const geckoId = e.target.options[e.target.selectedIndex].dataset.gecko;
+    
+    // Tell server to switch streams
+    socket.emit('change_symbol', symbol);
+    
+    // Update UI
+    fetchCoinLogo(geckoId);
+    
+    // Reset charts for the new coin
+    priceChart.data.labels = [];
+    priceChart.data.datasets[0].data = [];
+    volumeChart.data.labels = [];
+    volumeChart.data.datasets[0].data = [];
+    whaleAlerts = [];
+    updateAlertsList();
 });
 
 
