@@ -132,7 +132,7 @@ function initializeCharts() {
                     ticks: {
                         color: '#aaa',
                         callback: function(value) {
-                            return '$' + (value / 1000000).toFixed(1) + 'M';
+                            return '$' + (value / 1000).toFixed(1) + 'K';
                         }
                     },
                     grid: {
@@ -265,7 +265,12 @@ socket.on('history_update', (history) => {
     
     // Calculate total volume for last hour
     totalVolume = history.volumes.reduce((sum, volume) => sum + volume, 0);
-    totalVolumeEl.textContent = `$${(totalVolume / 1000000).toFixed(2)}M`;
+    if(totalVolume/1000 > 1000){
+        totalVolumeEl.textContent = `$${(totalVolume / 1000000).toFixed(2)}M`;
+    }
+    else{
+        totalVolumeEl.textContent = `$${(totalVolume / 1000).toFixed(2)}K`;
+    }
 });
 
 // Initialize everything when page loads
