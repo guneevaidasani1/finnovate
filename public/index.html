@@ -3,131 +3,153 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WhaleWatch AI | Crypto Dashboard</title>
+    <title>WhaleWatch | Institutional Market Intelligence</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
     <style>
-        .glass {
-            background: rgba(255, 255, 255, 0.03);
-            backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,700;1,700&display=swap');
+        
+        :root {
+            --bg-primary: #F9F9F8; /* Soft White / Alabaster */
+            --accent: #1A1A1A;    /* Deep Charcoal */
+            --border: #E5E5E1;
         }
-        .whale-alert-glow {
-            box-shadow: 0 0 20px rgba(239, 68, 68, 0.2);
+
+        body { font-family: 'Inter', sans-serif; background-color: var(--bg-primary); color: var(--accent); }
+        h1, h2, .premium-serif { font-family: 'Playfair Display', serif; }
+
+        .spa-card {
+            background: #FFFFFF;
+            border: 1px solid var(--border);
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
         }
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-thumb { background: #374151; border-radius: 10px; }
+
+        /* Precision Spacing: Standardized Gaps */
+        .layout-grid { display: grid; gap: 1.5rem; }
+        
+        /* Subtle Whale Alert Modal */
+        #whaleModal {
+            box-shadow: 0 20px 50px rgba(0,0,0,0.05);
+            border-top: 4px solid var(--accent);
+        }
+
+        .status-dot { width: 6px; height: 6px; border-radius: 50%; background: #10b981; }
+        
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-thumb { background: var(--border); }
     </style>
 </head>
-<body class="bg-[#0f111a] text-gray-100 min-h-screen font-sans">
+<body class="min-h-screen">
 
-    <div id="overlay" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] hidden"></div>
-    
-    <div id="whaleModal" class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 glass border-red-500/50 p-8 rounded-3xl z-[101] hidden text-center min-w-[400px] whale-alert-glow">
-        <button class="absolute top-4 right-4 text-gray-400 hover:text-white" onclick="closeWhaleModal()">✕</button>
-        <span class="text-red-500 text-5xl mb-4 block animate-pulse">🚨</span>
-        <h2 class="text-3xl font-bold text-red-500 mb-2">WHALE DETECTED</h2>
-        <p id="whaleAmount" class="text-xl font-medium"></p>
-        <p id="whaleTime" class="text-gray-400 mt-2"></p>
-        <div class="mt-6 py-2 px-4 bg-red-500/10 rounded-full inline-block text-red-400 text-sm border border-red-500/20">
-            Significant Market Pressure
-        </div>
+    <div id="overlay" class="fixed inset-0 bg-white/60 backdrop-blur-md z-[100] hidden"></div>
+    <div id="whaleModal" class="fixed top-12 left-1/2 -translate-x-1/2 bg-white p-8 rounded-lg z-[101] hidden text-center w-[90%] max-w-md">
+        <i data-lucide="info" class="mx-auto mb-4 text-zinc-400"></i>
+        <h2 class="text-2xl font-bold uppercase tracking-widest mb-2">Significant Inflow</h2>
+        <p id="whaleAmount" class="text-3xl font-light mb-1"></p>
+        <p id="whaleTime" class="text-zinc-400 text-xs uppercase tracking-tighter mb-6"></p>
+        <button onclick="closeWhaleModal()" class="text-xs border-b border-zinc-300 pb-1 hover:border-black transition-colors">DISMISS</button>
     </div>
 
-    <div class="flex h-screen overflow-hidden">
-        
-        <aside class="w-80 glass border-r border-white/10 p-6 flex flex-col gap-8 hidden lg:flex">
+    <div class="flex flex-col lg:flex-row h-screen">
+        <aside class="lg:w-72 border-r border-zinc-200 p-8 flex flex-col justify-between bg-white">
             <div>
-                <div class="flex items-center gap-3 mb-8">
-                    <div class="w-10 h-10 bg-orange-500 rounded-xl flex items-center justify-center font-bold text-black text-xl">₿</div>
-                    <h1 class="text-xl font-bold tracking-tight text-white">WhaleWatch<span class="text-orange-500 text-2xl">.</span></h1>
+                <div class="flex items-center gap-3 mb-12">
+                    <div class="w-8 h-8 bg-black flex items-center justify-center rounded-sm">
+                        <i data-lucide="waves" class="text-white w-5 h-5"></i>
+                    </div>
+                    <h1 class="text-xl font-bold tracking-tight">WhaleWatch</h1>
                 </div>
 
-                <div class="space-y-6">
+                <nav class="space-y-8">
                     <section>
-                        <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Market Intel</h4>
-                        <div class="p-4 rounded-2xl bg-white/5 border border-white/5">
-                            <p class="text-sm text-gray-400 leading-relaxed">
-                                Currently monitoring <strong>BTC/USDT</strong>. Whale thresholds are set to <strong>$500k+</strong> per single transaction.
-                            </p>
+                        <span class="text-[10px] font-semibold text-zinc-400 uppercase tracking-[0.2em] block mb-4">Intelligence</span>
+                        <div class="space-y-4">
+                            <div class="flex items-center gap-3 text-sm font-medium">
+                                <i data-lucide="bar-chart-3" class="w-4 h-4"></i> Overview
+                            </div>
+                            <div class="flex items-center gap-3 text-sm text-zinc-400">
+                                <i data-lucide="activity" class="w-4 h-4"></i> Order Flow
+                            </div>
                         </div>
                     </section>
-
-                    <section>
-                        <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Your Notes</h4>
-                        <textarea class="w-full bg-black/20 border border-white/10 rounded-xl p-3 text-sm focus:outline-none focus:border-orange-500/50 h-32" placeholder="Add custom labels or observations..."></textarea>
-                    </section>
-                </div>
+                </nav>
             </div>
 
-            <div class="mt-auto">
-                <div class="p-4 rounded-2xl bg-orange-500/10 border border-orange-500/20">
-                    <p class="text-xs text-orange-200">System Status: <span class="text-green-400 font-bold" id="connectionStatus">Live</span></p>
-                    <p class="text-[10px] text-orange-200/50 mt-1">v2.0.4-stable-binance</p>
+            <div class="pt-8 border-t border-zinc-100">
+                <div class="flex items-center gap-2 text-[10px] text-zinc-400 uppercase tracking-widest">
+                    <span class="status-dot"></span> 
+                    <span id="connectionStatus">System Live</span>
                 </div>
             </div>
         </aside>
 
-        <main class="flex-1 overflow-y-auto p-6 lg:p-10">
-            
-            <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-10">
+        <main class="flex-1 overflow-y-auto p-6 lg:p-12">
+            <header class="flex justify-between items-end mb-12">
                 <div>
-                    <h2 class="text-3xl font-bold text-white">Market Dashboard</h2>
-                    <p class="text-gray-400">Real-time aggregate of Binance order flow</p>
+                    <h2 class="text-4xl font-bold mb-2">Market Dashboard</h2>
+                    <p class="text-zinc-400 text-sm">Institutional Bitcoin liquidity monitoring.</p>
                 </div>
-                <div class="flex gap-3">
-                    <div class="px-4 py-2 glass rounded-xl text-sm flex items-center gap-2">
-                        <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-                        <span id="lastUpdate" class="font-mono text-gray-300">-</span>
+                <div class="text-right">
+                    <p class="text-[10px] text-zinc-400 uppercase tracking-widest mb-1">Updated</p>
+                    <span id="lastUpdate" class="font-mono text-sm">—</span>
+                </div>
+            </header>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-12">
+                <div class="spa-card p-6 rounded-xl">
+                    <div class="flex justify-between items-start mb-4">
+                        <span class="text-[10px] uppercase tracking-widest text-zinc-400">Price BTC/USDT</span>
+                        <i data-lucide="trending-up" class="w-4 h-4 text-zinc-300"></i>
                     </div>
+                    <div class="text-2xl font-light" id="currentPrice">0.00</div>
+                </div>
+                <div class="spa-card p-6 rounded-xl">
+                    <div class="flex justify-between items-start mb-4">
+                        <span class="text-[10px] uppercase tracking-widest text-zinc-400">Recent Entry</span>
+                        <i data-lucide="arrow-right-circle" class="w-4 h-4 text-zinc-300"></i>
+                    </div>
+                    <div class="text-2xl font-light" id="lastVolume">$0</div>
+                </div>
+                <div class="spa-card p-6 rounded-xl">
+                    <div class="flex justify-between items-start mb-4">
+                        <span class="text-[10px] uppercase tracking-widest text-zinc-400">Whale Activity (1H)</span>
+                        <i data-lucide="eye" class="w-4 h-4 text-zinc-300"></i>
+                    </div>
+                    <div class="text-2xl font-light" id="whaleCount">0</div>
+                </div>
+                <div class="spa-card p-6 rounded-xl">
+                    <div class="flex justify-between items-start mb-4">
+                        <span class="text-[10px] uppercase tracking-widest text-zinc-400">Hourly Volume</span>
+                        <i data-lucide="database" class="w-4 h-4 text-zinc-300"></i>
+                    </div>
+                    <div class="text-2xl font-light" id="totalVolume">$0</div>
                 </div>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
-                <div class="glass p-6 rounded-3xl">
-                    <p class="text-gray-400 text-xs font-medium uppercase tracking-widest mb-2">Price BTC/USDT</p>
-                    <div class="text-2xl font-bold text-white" id="currentPrice">Loading...</div>
-                </div>
-                <div class="glass p-6 rounded-3xl">
-                    <p class="text-gray-400 text-xs font-medium uppercase tracking-widest mb-2">Last Vol</p>
-                    <div class="text-2xl font-bold text-white" id="lastVolume">Loading...</div>
-                </div>
-                <div class="glass p-6 rounded-3xl border-orange-500/30">
-                    <p class="text-orange-500 text-xs font-medium uppercase tracking-widest mb-2 text-glow">Whale Alerts (1h)</p>
-                    <div class="text-3xl font-black text-orange-500" id="whaleCount">0</div>
-                </div>
-                <div class="glass p-6 rounded-3xl">
-                    <p class="text-gray-400 text-xs font-medium uppercase tracking-widest mb-2">Total Hour Vol</p>
-                    <div class="text-2xl font-bold text-white" id="totalVolume">Loading...</div>
-                </div>
-            </div>
-
-            <div class="grid grid-cols-1 xl:grid-cols-2 gap-8 mb-10">
-                <div class="glass p-8 rounded-[2rem]">
-                    <h3 class="text-lg font-semibold mb-6">Price Trajectory</h3>
-                    <div class="h-[300px] w-full">
+            <div class="grid grid-cols-1 xl:grid-cols-2 gap-8 mb-12">
+                <div class="spa-card p-8 rounded-2xl">
+                    <h3 class="text-sm font-semibold uppercase tracking-widest mb-8">Price Trajectory</h3>
+                    <div class="h-[320px]">
                         <canvas id="priceChart"></canvas>
                     </div>
                 </div>
-                <div class="glass p-8 rounded-[2rem]">
-                    <h3 class="text-lg font-semibold mb-6">Volume Distribution</h3>
-                    <div class="h-[300px] w-full">
+                <div class="spa-card p-8 rounded-2xl">
+                    <h3 class="text-sm font-semibold uppercase tracking-widest mb-8">Volume Flow</h3>
+                    <div class="h-[320px]">
                         <canvas id="volumeChart"></canvas>
                     </div>
                 </div>
             </div>
 
-            <div class="glass p-8 rounded-[2rem]">
-                <div class="flex justify-between items-center mb-6">
-                    <h3 class="text-xl font-bold">Activity Feed</h3>
-                    <span class="text-xs text-gray-500">Threshold: > $500,000 USD</span>
+            <div class="spa-card rounded-2xl overflow-hidden">
+                <div class="px-8 py-6 border-b border-zinc-100 flex justify-between items-center">
+                    <h3 class="text-sm font-semibold uppercase tracking-widest">Alert Ledger</h3>
+                    <span class="text-[10px] text-zinc-400 italic">Criteria: > $500,000 USD</span>
                 </div>
-                <div id="alertsList" class="space-y-4 max-h-[400px] overflow-y-auto pr-4">
-                    <div class="flex items-center gap-4 p-4 bg-white/5 rounded-2xl border border-white/5">
-                        <div class="w-2 h-2 rounded-full bg-blue-500"></div>
-                        <p class="text-sm text-gray-400">Initializing socket connection to Binance...</p>
-                    </div>
+                <div id="alertsList" class="divide-y divide-zinc-50">
+                    <div class="p-8 text-center text-zinc-300 text-sm">Monitoring live order flow...</div>
                 </div>
             </div>
         </main>
@@ -135,11 +157,8 @@
 
     <script src="app.js"></script>
     <script>
-        // Placeholder helper for the whale modal to work with the script tags
-        function closeWhaleModal() {
-            document.getElementById('whaleModal').classList.add('hidden');
-            document.getElementById('overlay').classList.add('hidden');
-        }
+        // Initialize Lucide Icons after content loads
+        lucide.createIcons();
     </script>
 </body>
 </html>
