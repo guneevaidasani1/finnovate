@@ -12,66 +12,58 @@ const io = new Server(server);
 
 app.use(express.static(path.join(__dirname, 'public')));
 
+// --- NOISE REDUCTION CONFIG ---
+const THROTTLE_MS = 1000;            
+const MIN_VOLUME_THRESHOLD = 500;   
+const WHALE_THRESHOLD = 500000;      
+// ------------------------------
 
+let tradeBuffer = []; 
 let tradeHistory = { 
     timestamps: [], 
     prices: [], 
     volumes: [] 
 };
 
-//data older than 60 mins is washed
 function updateTradeHistory(trade) {
     const now = Date.now();
     const sixtyMinutesAgo = now - (60 * 60 * 1000);
 
-    // new data is added
     tradeHistory.timestamps.push(now);
     tradeHistory.prices.push(trade.price);
     tradeHistory.volumes.push(trade.value);
 
-    // old data is fitlered
     while (tradeHistory.timestamps.length > 0 && tradeHistory.timestamps[0] < sixtyMinutesAgo) {
         tradeHistory.timestamps.shift();
         tradeHistory.prices.shift();
         tradeHistory.volumes.shift();
     }
-
-    
-    io.emit('history_update', tradeHistory);
 }
-// -----------------------------
 
-app.get('/api/bitcoin-info', (req, res) => {
-    res.json({
-        name: 'Bitcoin',
-        symbol: 'BTC',
-        logo: 'https://cryptologos.cc/logos/bitcoin-btc-logo.png'
-    });
-});
-
-
-const options = {
+const binanceSocket = new WebSocket('wss://stream.binance.com:9443/ws/btcusdt@trade', {
     headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'User-Agent': 'Mozilla/5.0',
         'Origin': 'https://www.binance.com'
     }
-};
-
-const binanceSocket = new WebSocket('wss://stream.binance.com:9443/ws/btcusdt@trade', options);
-
-console.log("Finnovate Pipeline: Initializing...");
-
-binanceSocket.on('open', () => {
-    console.log("✅ SUCCESS: Connected to Binance!");
-    console.log("Monitoring live trades for Whales ($500k+)...");
 });
 
 binanceSocket.on('message', (data) => {
     try {
         const trade = JSON.parse(data);
-        const price = parseFloat(trade.p);
-        const quantity = parseFloat(trade.q);
+        
+        // 1. FORCED NUMERIC CONVERSION
+        const price = Number(trade.p);
+        const quantity = Number(trade.q);
         const usdValue = price * quantity;
+
+        // 2. THE HARD FILTER
+        // We use >= 500. If it's 499.99, it hits 'return' and the rest of the code is IGNORED.
+        if (usdValue < MIN_VOLUME_THRESHOLD) {
+            return; 
+        }
+
+        // DEBUG: Uncomment the line below to see exactly what's passing through in your terminal
+        // console.log(`Passed Filter: $${usdValue.toFixed(2)}`);
 
         const tradeData = {
             price,
@@ -80,38 +72,47 @@ binanceSocket.on('message', (data) => {
             timestamp: new Date().toISOString()
         };
 
-        // update history and total volume logic
         updateTradeHistory(tradeData);
+        tradeBuffer.push(tradeData);
 
-        // send data to front end
-        io.emit('trade_update', tradeData);
-
-        if (usdValue >= 500000) {
+        if (usdValue >= WHALE_THRESHOLD) {
             const side = trade.m ? 'SELL' : 'BUY';
-            const alertMsg = `🚨 [${side}] WHALE ALERT: $${usdValue.toLocaleString(undefined, {maximumFractionDigits: 0})}`;
-            console.log(`\n${alertMsg}`);
-            
             io.emit('whale_alert', {
-                message: alertMsg,
+                message: `🚨 [${side}] WHALE ALERT: $${usdValue.toLocaleString()}`,
                 value: usdValue,
-                timestamp: new Date().toISOString()
+                timestamp: tradeData.timestamp
             });
         }
     } catch (err) {
-        console.error("❌ Error parsing trade data:", err.message);
+        console.error("❌ Error:", err.message);
     }
 });
 
-// 
+// --- THROTTLE ENGINE ---
+setInterval(() => {
+    if (tradeBuffer.length > 0) {
+        // Grab the last trade that successfully passed the $500 filter
+        const latestValidTrade = tradeBuffer[tradeBuffer.length - 1];
+        
+        // Calculate the sum of all trades in this 1-second window (all > $500)
+        const batchVolume = tradeBuffer.reduce((sum, t) => sum + t.value, 0);
+        
+        io.emit('trade_update', {
+            price: latestValidTrade.price,
+            quantity: latestValidTrade.quantity,
+            value: latestValidTrade.value, // This is your "Last Trade Volume"
+            batchVolume: batchVolume,      // This is the total for the second
+            timestamp: latestValidTrade.timestamp,
+            isFiltered: true
+        });
+
+        io.emit('history_update', tradeHistory);
+        tradeBuffer = [];
+    }
+}, THROTTLE_MS);
+
 io.on('connection', (socket) => {
     socket.emit('history_update', tradeHistory);
 });
 
-binanceSocket.on('error', (err) => {
-    console.error("❌ Connection Error:", err.message);
-});
-
-const PORT = 3000;
-server.listen(PORT, () => {
-    console.log(`🚀 Server running at http://localhost:${PORT}`);
-});
+server.listen(3000, () => console.log(`🚀 Filtered Server: http://localhost:3000`));
