@@ -106,12 +106,13 @@ function showWhaleAlert(alert) {
     whaleCountEl.textContent = whaleAlerts.length;
     updateAlertsList();
 
-    if(alert.value/1000 <= 1000){
-        document.getElementById('whaleAmount').textContent = `$${(alert.value / 1000).toFixed(2)}K`;
-    }
-    else{
+    if(alert.value/1000 > 1000){
         document.getElementById('whaleAmount').textContent = `$${(alert.value / 1000000).toFixed(2)}M`;
     }
+    else{
+        document.getElementById('whaleAmount').textContent = `$${(alert.value / 1000).toFixed(2)}K`;
+    }
+        
     document.getElementById('whaleTime').textContent = new Date(alert.timestamp).toLocaleTimeString();
     
     whaleModal.classList.remove('hidden');
@@ -161,7 +162,13 @@ socket.on('whale_alert', (alert) => showWhaleAlert(alert));
 socket.on('history_update', (history) => {
     updateCharts(history.timestamps, history.prices, history.volumes);
     const total = history.volumes.reduce((a, b) => a + b, 0);
-    totalVolumeEl.textContent = `$${(total / 1000000).toFixed(2)}M`;
+    if(total/1000>1000){
+        totalVolumeEl.textContent = `$${(total / 1000000).toFixed(2)}M`;
+    }
+    else{
+
+        totalVolumeEl.textContent = `$${(total / 1000).toFixed(2)}K`;
+    }
 });
 
 window.onload = () => {
