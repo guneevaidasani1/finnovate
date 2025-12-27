@@ -26,16 +26,34 @@
             transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
+        /* NEW: Bottom-Right Red Alert Toast Styling */
         #whaleModal {
-            box-shadow: 0 20px 50px rgba(0,0,0,0.05);
-            border-top: 4px solid var(--accent);
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            width: 320px;
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(239, 68, 68, 0.15); /* Soft red glow */
+            border-left: 6px solid #ef4444; /* Bright Red side border */
+            z-index: 1000;
+            transform: translateY(100px);
+            opacity: 0;
+            transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+            pointer-events: none;
+        }
+
+        #whaleModal.active {
+            transform: translateY(0);
+            opacity: 1;
+            pointer-events: auto;
         }
 
         .status-dot { width: 6px; height: 6px; border-radius: 50%; background: #10b981; }
         ::-webkit-scrollbar { width: 4px; }
         ::-webkit-scrollbar-thumb { background: var(--border); }
 
-        /* Custom styling for the range slider to match the theme */
         input[type=range] {
             -webkit-appearance: none;
             background: transparent;
@@ -62,13 +80,18 @@
 </head>
 <body class="min-h-screen">
 
-    <div id="overlay" class="fixed inset-0 bg-white/60 backdrop-blur-md z-[100] hidden"></div>
-    <div id="whaleModal" class="fixed top-12 left-1/2 -translate-x-1/2 bg-white p-8 rounded-lg z-[101] hidden text-center w-[90%] max-w-md">
-        <i data-lucide="info" class="mx-auto mb-4 text-zinc-400"></i>
-        <h2 class="text-2xl font-bold uppercase tracking-widest mb-2">Significant Inflow</h2>
-        <p id="whaleAmount" class="text-3xl font-light mb-1"></p>
-        <p id="whaleTime" class="text-zinc-400 text-xs uppercase tracking-tighter mb-6"></p>
-        <button onclick="closeWhaleModal()" class="text-xs border-b border-zinc-300 pb-1 hover:border-black transition-colors">DISMISS</button>
+    <div id="whaleModal">
+        <div class="flex justify-between items-start mb-2">
+            <div class="flex items-center gap-2">
+                <span class="text-lg">🚨</span> 
+                <h2 class="text-[10px] font-bold uppercase tracking-widest text-red-500">Whale Alert</h2>
+            </div>
+            <button onclick="closeWhaleModal()" class="text-zinc-400 hover:text-black transition-colors">
+                <i data-lucide="x" class="w-4 h-4"></i>
+            </button>
+        </div>
+        <p id="whaleAmount" class="text-2xl font-bold text-zinc-900 mb-1"></p>
+        <p id="whaleTime" class="text-zinc-400 text-[9px] uppercase tracking-tighter"></p>
     </div>
 
     <div class="flex flex-col lg:flex-row h-screen">
@@ -130,7 +153,7 @@
             <header class="flex justify-between items-end mb-12">
                 <div>
                     <h2 class="text-4xl font-bold mb-2">Crypto WhaleWatcher</h2>
-                    <p class="text-zinc-400 text-sm">Monitoring real-time large-scale block trades and liquidity shifts across the crypto spot market.</p>
+                    <p class="text-zinc-400 text-sm">Monitoring real-time large-scale block trades across the market.</p>
                 </div>
                 <div class="text-right">
                     <p class="text-[10px] text-zinc-400 uppercase tracking-widest mb-1">Last Update</p>
@@ -155,7 +178,7 @@
                 </div>
                 <div class="spa-card p-6 rounded-xl">
                     <div class="flex justify-between items-start mb-4">
-                        <span class="text-[10px] uppercase tracking-widest text-zinc-400">Institutional Alerts (1H)</span>
+                        <span class="text-[10px] uppercase tracking-widest text-zinc-400">Whale Alerts (1H)</span>
                         <i data-lucide="eye" class="w-4 h-4 text-zinc-300"></i>
                     </div>
                     <div class="text-2xl font-light" id="whaleCount">0</div>

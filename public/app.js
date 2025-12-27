@@ -11,7 +11,6 @@ const totalVolumeEl = document.getElementById('totalVolume');
 const alertsListEl = document.getElementById('alertsList');
 const lastUpdateEl = document.getElementById('lastUpdate');
 const whaleModal = document.getElementById('whaleModal');
-const overlay = document.getElementById('overlay');
 
 // Slider Elements
 const whaleSlider = document.getElementById('whaleSlider');
@@ -53,12 +52,7 @@ function initializeCharts() {
             x: { 
                 display: true,
                 grid: { display: false },
-                ticks: { 
-                    color: '#A1A1AA', 
-                    font: { size: 9 },
-                    maxTicksLimit: 12,
-                    autoSkip: true
-                }
+                ticks: { color: '#A1A1AA', font: { size: 9 }, maxTicksLimit: 12, autoSkip: true }
             },
             y: {
                 display: true,
@@ -105,9 +99,6 @@ function updateCharts(timestamps, prices, volumes) {
     volumeChart.update('none');
 }
 
-/**
- * UPDATED: Helper function to synchronize UI elements with the threshold value
- */
 function applyThreshold(val) {
     const formatted = `$${val.toLocaleString()}`;
     if (thresholdDisplay) thresholdDisplay.textContent = formatted;
@@ -117,42 +108,37 @@ function applyThreshold(val) {
     if (whaleSlider) whaleSlider.value = val;
 }
 
-/**
- * UPDATED: Slider event listener with LocalStorage persistence
- */
 whaleSlider.addEventListener('input', (e) => {
     const val = parseInt(e.target.value);
     applyThreshold(val);
-    
-    // Save to LocalStorage for persistence across refreshes
     localStorage.setItem('whaleThreshold', val);
-    
-    // Notify server of the new threshold
     socket.emit('threshold_update', val);
 });
 
+// NEW: Updated Whale Alert Logic for Toast
 function showWhaleAlert(alert) {
     whaleAlerts.unshift(alert);
-    whaleCountEl.textContent = whaleAlerts.length;
+    if (whaleCountEl) whaleCountEl.textContent = whaleAlerts.length;
     updateAlertsList();
 
-    if(alert.value/1000 > 1000){
-        document.getElementById('whaleAmount').textContent = `$${(alert.value / 1000000).toFixed(2)}M`;
-    }
-    else{
-        document.getElementById('whaleAmount').textContent = `$${(alert.value / 1000).toFixed(2)}K`;
-    }
-        
+    const value = alert.value;
+    const amountLabel = value / 1000000 >= 1 
+        ? `$${(value / 1000000).toFixed(2)}M` 
+        : `$${(value / 1000).toFixed(2)}K`;
+
+    document.getElementById('whaleAmount').textContent = amountLabel;
     document.getElementById('whaleTime').textContent = new Date(alert.timestamp).toLocaleTimeString();
     
-    whaleModal.classList.remove('hidden');
-    overlay.classList.remove('hidden');
-    setTimeout(closeWhaleModal, 5000);
+    // Trigger slide-in by adding 'active' class
+    whaleModal.classList.add('active');
+    
+    // Auto-dismiss after 10 seconds
+    setTimeout(closeWhaleModal, 10000);
 }
 
+// NEW: Close toast logic
 function closeWhaleModal() {
-    whaleModal.classList.add('hidden');
-    overlay.classList.add('hidden');
+    whaleModal.classList.remove('active');
 }
 
 function updateAlertsList() {
@@ -160,7 +146,7 @@ function updateAlertsList() {
     const recent = whaleAlerts.slice(0, 8);
 
     if (recent.length === 0) {
-        alertsListEl.innerHTML = `<div class="p-8 text-center text-zinc-300 text-sm">Monitoring live order flow...</div>`;
+        alertsListEl.innerHTML = `<div class="p-8 text-center text-zinc-300 text-sm">Monitoring live flow...</div>`;
         return;
     }
 
@@ -192,25 +178,16 @@ socket.on('whale_alert', (alert) => showWhaleAlert(alert));
 socket.on('history_update', (history) => {
     updateCharts(history.timestamps, history.prices, history.volumes);
     const total = history.volumes.reduce((a, b) => a + b, 0);
-    if(total/1000>1000){
-        totalVolumeEl.textContent = `$${(total / 1000000).toFixed(2)}M`;
-    }
-    else{
-        totalVolumeEl.textContent = `$${(total / 1000).toFixed(2)}K`;
-    }
+    totalVolumeEl.textContent = total / 1000000 >= 1 
+        ? `$${(total / 1000000).toFixed(2)}M` 
+        : `$${(total / 1000).toFixed(2)}K`;
 });
 
 document.getElementById('coinSelector').addEventListener('change', (e) => {
     const symbol = e.target.value;
     const geckoId = e.target.options[e.target.selectedIndex].dataset.gecko;
-    
-    // Tell server to switch streams
     socket.emit('change_symbol', symbol);
-    
-    // Update UI
     fetchCoinLogo(geckoId);
-    
-    // Reset charts for the new coin
     priceChart.data.labels = [];
     priceChart.data.datasets[0].data = [];
     volumeChart.data.labels = [];
@@ -219,19 +196,13 @@ document.getElementById('coinSelector').addEventListener('change', (e) => {
     updateAlertsList();
 });
 
-
 window.onload = () => {
     fetchCoinLogo();
     initializeCharts();
-    overlay.addEventListener('click', closeWhaleModal);
-
-    
     const savedThreshold = localStorage.getItem('whaleThreshold');
     if (savedThreshold) {
         const val = parseInt(savedThreshold);
         applyThreshold(val);
-        
-        
         socket.emit('threshold_update', val);
     }
 };
