@@ -220,7 +220,10 @@
                         <span class="text-[10px] uppercase tracking-widest text-zinc-400">Whale Alerts (1H)</span>
                         <i data-lucide="eye" class="w-4 h-4 text-zinc-300"></i>
                     </div>
-                    <div class="text-2xl font-light" id="whaleCount">0</div>
+                    <div class="space-y-1">
+                        <div class="text-2xl font-light" id="whaleCount">0</div>
+                        <p id="whaleRegime" class="text-[11px] text-zinc-400 uppercase tracking-tight">Regime: Syncing...</p>
+                    </div>
                 </div>
                 <div class="spa-card p-6 rounded-xl">
                     <div class="flex justify-between items-start mb-4">
@@ -244,6 +247,12 @@
                         <canvas id="volumeChart"></canvas>
                     </div>
                 </div>
+            </div>
+
+            <div class="spa-card p-8 rounded-2xl mb-12">
+                <h3 class="text-sm font-semibold uppercase tracking-widest mb-3">Whale Intensity Tape (15m)</h3>
+                <p class="text-[11px] text-zinc-400 mb-4">Each block represents a whale event. Larger and darker blocks signal higher USD notional size over the last 15 minutes.</p>
+                <div id="whaleHeatmap" class="flex gap-1 h-8 items-stretch overflow-hidden rounded-md bg-zinc-50 border border-zinc-100"></div>
             </div>
 
             <div id="activityFeed" class="spa-card rounded-2xl overflow-hidden">

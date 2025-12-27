@@ -11,6 +11,8 @@ const totalVolumeEl = document.getElementById('totalVolume');
 const alertsListEl = document.getElementById('alertsList');
 const lastUpdateEl = document.getElementById('lastUpdate');
 const whaleModal = document.getElementById('whaleModal');
+const whaleRegimeEl = document.getElementById('whaleRegime');
+const whaleHeatmapEl = document.getElementById('whaleHeatmap');
 
 // Slider Elements
 const whaleSlider = document.getElementById('whaleSlider');
@@ -120,6 +122,8 @@ function showWhaleAlert(alert) {
     whaleAlerts.unshift(alert);
     if (whaleCountEl) whaleCountEl.textContent = whaleAlerts.length;
     updateAlertsList();
+    updateWhaleRegime();
+    updateWhaleHeatmap();
 
     const value = alert.value;
     const amountLabel = value / 1000000 >= 1 
@@ -167,6 +171,73 @@ function updateAlertsList() {
     });
 }
 
+function getRecentWhales(minutes = 15) {
+    const cutoff = Date.now() - minutes * 60 * 1000;
+    return whaleAlerts.filter(alert => {
+        try {
+            const ts = new Date(alert.timestamp).getTime();
+            return !isNaN(ts) && ts >= cutoff;
+        } catch (e) {
+            return false;
+        }
+    });
+}
+
+function updateWhaleRegime() {
+    if (!whaleRegimeEl) return;
+
+    const recent = getRecentWhales(15);
+    if (recent.length === 0) {
+        whaleRegimeEl.textContent = 'Regime: Waiting for flow';
+        return;
+    }
+
+    const totalVolume = recent.reduce((sum, a) => sum + (a.value || 0), 0);
+    const largest = recent.reduce((max, a) => a.value > max ? a.value : max, 0);
+
+    let label = 'Calm';
+    if (totalVolume > 5000000 || largest > 2000000) {
+        label = 'Aggressive';
+    } else if (totalVolume > 1500000 || largest > 750000) {
+        label = 'Elevated';
+    }
+
+    whaleRegimeEl.textContent = `Regime: ${label} (${recent.length} whales / 15m)`;
+}
+
+function updateWhaleHeatmap() {
+    if (!whaleHeatmapEl) return;
+
+    const recent = getRecentWhales(15);
+    whaleHeatmapEl.innerHTML = '';
+
+    if (recent.length === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'w-full flex items-center justify-center text-[11px] text-zinc-300';
+        empty.textContent = 'Awaiting first whales...';
+        whaleHeatmapEl.appendChild(empty);
+        return;
+    }
+
+    const values = recent.map(a => a.value || 0);
+    const minVal = Math.min(...values);
+    const maxVal = Math.max(...values);
+
+    recent.forEach(alert => {
+        const value = alert.value || 0;
+        const block = document.createElement('div');
+        block.className = 'h-full rounded-sm';
+
+        const normalized = maxVal === minVal ? 1 : (value - minVal) / (maxVal - minVal);
+        const lightness = 80 - normalized * 35; // 80% -> 45%
+        block.style.backgroundColor = `hsl(0, 85%, ${lightness}%)`;
+        block.style.flexGrow = String(0.5 + Math.sqrt(value) / 500);
+
+        block.title = `$${value.toLocaleString()} @ ${new Date(alert.timestamp).toLocaleTimeString()}`;
+        whaleHeatmapEl.appendChild(block);
+    });
+}
+
 function updateStats(trade) {
     currentPriceEl.textContent = trade.price.toLocaleString(undefined, { minimumFractionDigits: 2 });
     lastVolumeEl.textContent = `$${Math.round(trade.value).toLocaleString()}`;
@@ -194,6 +265,8 @@ document.getElementById('coinSelector').addEventListener('change', (e) => {
     volumeChart.data.datasets[0].data = [];
     whaleAlerts = [];
     updateAlertsList();
+    updateWhaleRegime();
+    updateWhaleHeatmap();
 });
 
 window.onload = () => {
@@ -205,4 +278,6 @@ window.onload = () => {
         applyThreshold(val);
         socket.emit('threshold_update', val);
     }
+    updateWhaleRegime();
+    updateWhaleHeatmap();
 };

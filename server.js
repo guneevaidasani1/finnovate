@@ -27,6 +27,9 @@ let tradeBuffer = [];
 let tradeHistory = { timestamps: [], prices: [], volumes: [] };
 let currentSymbol = 'btcusdt';
 let binanceSocket = null;
+let whaleEvents = [];
+let lastClusterAlertAt = 0;
+let lastLiquidityDrainAlertAt = 0;
 
 
 const users = [];
@@ -128,6 +131,16 @@ app.get('/logout', (req, res, next) => {
 app.use(express.static(path.join(__dirname, 'public'), { index: false }));
 
 
+// Whale analytics snapshot API (for future dashboards or external tools)
+app.get('/api/whale-metrics', (req, res) => {
+    const now = Date.now();
+    const SIXTY_MIN_MS = 60 * 60 * 1000;
+    whaleEvents = whaleEvents.filter((event) => event.timestamp >= now - SIXTY_MIN_MS);
+    const metrics = buildWhaleMetrics(now);
+    res.json(metrics);
+});
+
+
 // --- CRYPTO LOGIC & WEBSOCKET ---
 
 function updateTradeHistory(trade) {
@@ -143,6 +156,213 @@ function updateTradeHistory(trade) {
         tradeHistory.timestamps.shift();
         tradeHistory.prices.shift();
         tradeHistory.volumes.shift();
+    }
+}
+
+function getWhaleWindowStats(now, windowMinutes) {
+    const cutoff = now - windowMinutes * 60 * 1000;
+    const windowEvents = whaleEvents.filter((event) => event.timestamp >= cutoff);
+
+    if (windowEvents.length === 0) {
+        return {
+            windowMinutes,
+            whaleCount: 0,
+            totalVolume: 0,
+            largestWhale: 0,
+            buyVolume: 0,
+            sellVolume: 0,
+            netFlow: 0
+        };
+    }
+
+    let totalVolume = 0;
+    let largestWhale = 0;
+    let buyVolume = 0;
+    let sellVolume = 0;
+
+    for (const event of windowEvents) {
+        const value = event.value || 0;
+        totalVolume += value;
+        if (value > largestWhale) {
+            largestWhale = value;
+        }
+        if (event.side === 'BUY') {
+            buyVolume += value;
+        } else if (event.side === 'SELL') {
+            sellVolume += value;
+        }
+    }
+
+    const netFlow = buyVolume - sellVolume;
+
+    return {
+        windowMinutes,
+        whaleCount: windowEvents.length,
+        totalVolume,
+        largestWhale,
+        buyVolume,
+        sellVolume,
+        netFlow
+    };
+}
+
+function scoreWhaleWindow(stats) {
+    const totalVolume = stats.totalVolume;
+    const largestWhale = stats.largestWhale;
+    const netFlow = stats.netFlow;
+
+    let score = 0;
+
+    // Contribution from total volume
+    if (totalVolume > 10000000) {
+        score += 40;
+    } else if (totalVolume > 5000000) {
+        score += 30;
+    } else if (totalVolume > 2000000) {
+        score += 20;
+    } else if (totalVolume > 1000000) {
+        score += 10;
+    }
+
+    // Contribution from the single largest whale
+    if (largestWhale > 5000000) {
+        score += 40;
+    } else if (largestWhale > 2000000) {
+        score += 25;
+    } else if (largestWhale > 1000000) {
+        score += 15;
+    } else if (largestWhale > 500000) {
+        score += 5;
+    }
+
+    // Directional imbalance (buy vs sell)
+    const imbalance = Math.abs(netFlow);
+    if (imbalance > 5000000) {
+        score += 20;
+    } else if (imbalance > 2000000) {
+        score += 10;
+    }
+
+    if (score > 100) {
+        score = 100;
+    }
+
+    let regime = 'Calm';
+    if (score >= 75) {
+        regime = 'Capitulation';
+    } else if (score >= 50) {
+        regime = 'Aggressive';
+    } else if (score >= 25) {
+        regime = 'Elevated';
+    }
+
+    return { score, regime };
+}
+
+function buildWhaleMetrics(now) {
+    const stats5 = getWhaleWindowStats(now, 5);
+    const score5 = scoreWhaleWindow(stats5);
+
+    const stats15 = getWhaleWindowStats(now, 15);
+    const score15 = scoreWhaleWindow(stats15);
+
+    const stats60 = getWhaleWindowStats(now, 60);
+    const score60 = scoreWhaleWindow(stats60);
+
+    return {
+        symbol: currentSymbol.toUpperCase(),
+        generatedAt: new Date(now).toISOString(),
+        windows: {
+            m5: { ...stats5, ...score5 },
+            m15: { ...stats15, ...score15 },
+            m60: { ...stats60, ...score60 }
+        }
+    };
+}
+
+function updateWhaleAnalytics(now) {
+    const SIXTY_MIN_MS = 60 * 60 * 1000;
+
+    // Keep only the last 60 minutes of whale events
+    whaleEvents = whaleEvents.filter((event) => event.timestamp >= now - SIXTY_MIN_MS);
+
+    const metrics = buildWhaleMetrics(now);
+    io.emit('whale_regime_update', metrics);
+
+    // Detect short-term clusters (30s window, >= 3 whales, > $1.5M same-direction)
+    const CLUSTER_WINDOW_MS = 30 * 1000;
+    const MIN_CLUSTER_COUNT = 3;
+    const MIN_CLUSTER_VOLUME = 1500000;
+
+    const recentClusterEvents = whaleEvents.filter((event) => event.timestamp >= now - CLUSTER_WINDOW_MS);
+
+    if (recentClusterEvents.length >= MIN_CLUSTER_COUNT) {
+        let buyVolume = 0;
+        let sellVolume = 0;
+        let buyCount = 0;
+        let sellCount = 0;
+
+        for (const event of recentClusterEvents) {
+            const value = event.value || 0;
+            if (event.side === 'BUY') {
+                buyVolume += value;
+                buyCount += 1;
+            } else if (event.side === 'SELL') {
+                sellVolume += value;
+                sellCount += 1;
+            }
+        }
+
+        let dominantSide = null;
+        let dominantCount = 0;
+        let dominantVolume = 0;
+
+        if (buyCount >= sellCount) {
+            dominantSide = 'BUY';
+            dominantCount = buyCount;
+            dominantVolume = buyVolume;
+        } else {
+            dominantSide = 'SELL';
+            dominantCount = sellCount;
+            dominantVolume = sellVolume;
+        }
+
+        if (
+            dominantCount >= MIN_CLUSTER_COUNT &&
+            dominantVolume >= MIN_CLUSTER_VOLUME &&
+            now - lastClusterAlertAt > CLUSTER_WINDOW_MS
+        ) {
+            lastClusterAlertAt = now;
+
+            io.emit('whale_cluster_alert', {
+                symbol: currentSymbol.toUpperCase(),
+                side: dominantSide,
+                count: dominantCount,
+                totalVolume: dominantVolume,
+                windowSeconds: CLUSTER_WINDOW_MS / 1000,
+                generatedAt: new Date(now).toISOString()
+            });
+        }
+    }
+
+    // Liquidity drain alert (5m heavy net sell flow)
+    const stats5 = metrics.windows.m5;
+    const DRAIN_THRESHOLD = 5000000;
+
+    if (
+        stats5.netFlow < -DRAIN_THRESHOLD &&
+        now - lastLiquidityDrainAlertAt > 5 * 60 * 1000
+    ) {
+        lastLiquidityDrainAlertAt = now;
+
+        io.emit('liquidity_drain_alert', {
+            symbol: currentSymbol.toUpperCase(),
+            windowMinutes: 5,
+            netFlow: stats5.netFlow,
+            totalSellVolume: stats5.sellVolume,
+            totalBuyVolume: stats5.buyVolume,
+            generatedAt: new Date(now).toISOString()
+        });
     }
 }
 
@@ -175,11 +395,15 @@ function connectToBinance(symbol) {
 
             if (usdValue < MIN_VOLUME_THRESHOLD) return; 
 
+            const eventTimeMs = typeof trade.T === 'number' ? trade.T : Date.now();
+            const side = trade.m === true ? 'SELL' : 'BUY'; // Binance: m=true => buyer is maker => sell-initiated trade
+
             const tradeData = {
                 price,
                 quantity,
                 value: usdValue,
-                timestamp: new Date().toISOString(),
+                side,
+                timestamp: new Date(eventTimeMs).toISOString(),
                 symbol: symbol.toUpperCase()
             };
 
@@ -187,8 +411,18 @@ function connectToBinance(symbol) {
             tradeBuffer.push(tradeData);
 
             if (usdValue >= whaleThreshold) {
+                const whaleEvent = {
+                    value: usdValue,
+                    side,
+                    timestamp: eventTimeMs,
+                    symbol: tradeData.symbol
+                };
+                whaleEvents.push(whaleEvent);
+                updateWhaleAnalytics(eventTimeMs);
+
                 io.emit('whale_alert', {
                     value: usdValue,
+                    side,
                     timestamp: tradeData.timestamp,
                     symbol: tradeData.symbol
                 });
@@ -211,6 +445,7 @@ setInterval(() => {
         io.emit('trade_update', {
             price: latestValidTrade.price,
             value: latestValidTrade.value,
+            side: latestValidTrade.side,
             timestamp: latestValidTrade.timestamp,
             symbol: currentSymbol.toUpperCase()
         });
