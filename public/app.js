@@ -1,4 +1,4 @@
-// app.js overhaul
+// app.js overhaul with Time-Series Precision
 let priceChart = null;
 let volumeChart = null;
 let whaleAlerts = [];
@@ -15,29 +15,62 @@ const whaleModal = document.getElementById('whaleModal');
 const overlay = document.getElementById('overlay');
 
 function initializeCharts() {
+    // UPDATED: commonOptions now enables the X-axis for Time display
     const commonOptions = {
         responsive: true,
         maintainAspectRatio: false,
-        plugins: { legend: { display: false } },
+        plugins: { 
+            legend: { display: false },
+            tooltip: {
+                backgroundColor: '#1A1A1A',
+                titleFont: { size: 10 },
+                bodyFont: { size: 12 },
+                displayColors: false,
+                padding: 10
+            }
+        },
         scales: {
-            x: { display: false },
+            x: { 
+                display: true, // Set to true to show Time
+                grid: { display: false },
+                ticks: { 
+                    color: '#A1A1AA', 
+                    font: { size: 9 },
+                    maxTicksLimit: 8, // Prevents overlapping timestamps
+                    autoSkip: true
+                }
+            },
             y: {
+                display: true,
                 grid: { color: '#F1F1EF', drawBorder: false },
-                ticks: { color: '#A1A1AA', font: { size: 10 } }
+                ticks: { 
+                    color: '#A1A1AA', 
+                    font: { size: 10 },
+                    // Forces precise decimal formatting for Price
+                    callback: function(value) {
+                        return value >= 1000 ? '$' + value.toLocaleString() : value;
+                    }
+                }
             }
         },
         elements: {
-            line: { tension: 0.2, borderWidth: 1.5 },
-            point: { radius: 0 }
+            line: { tension: 0.1, borderWidth: 1.5 }, // Reduced tension for Swiss precision
+            point: { radius: 0, hoverRadius: 4 }
+        },
+        interaction: {
+            intersect: false,
+            mode: 'index',
         }
     };
 
+    // Chart 1: Price Trajectory (X: Time, Y: Price)
     priceChart = new Chart(document.getElementById('priceChart').getContext('2d'), {
         type: 'line',
         data: { labels: [], datasets: [{ data: [], borderColor: '#1A1A1A', backgroundColor: 'transparent' }] },
         options: commonOptions
     });
 
+    // Chart 2: Volume Flow (X: Time, Y: Trade Volume)
     volumeChart = new Chart(document.getElementById('volumeChart').getContext('2d'), {
         type: 'line',
         data: { labels: [], datasets: [{ data: [], borderColor: '#1A1A1A', backgroundColor: 'rgba(26,26,26,0.02)', fill: true }] },
@@ -46,11 +79,18 @@ function initializeCharts() {
 }
 
 function updateCharts(timestamps, prices, volumes) {
-    const labels = timestamps.map(ts => new Date(ts).toLocaleTimeString());
+    // Map timestamps to high-precision strings for the X-axis
+    const labels = timestamps.map(ts => {
+        const date = new Date(ts);
+        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+    });
+
+    // Update Price Dataset
     priceChart.data.labels = labels;
     priceChart.data.datasets[0].data = prices;
-    priceChart.update('none');
+    priceChart.update('none'); // 'none' prevents lag during rapid updates
 
+    // Update Volume Dataset
     volumeChart.data.labels = labels;
     volumeChart.data.datasets[0].data = volumes;
     volumeChart.update('none');
