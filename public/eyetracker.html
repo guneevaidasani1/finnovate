@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>WhaleWatch | Eye Tracking Test</title>
+    <script src="https://webgazer.cs.brown.edu/webgazer.js"></script>
+    <style>
+        body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; background: #f0f0f0; }
+        
+        #gazeDot {
+            position: fixed;
+            width: 10px;
+            height: 10px;
+            background: red;
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 9999;
+            display: none; 
+        }
+
+        /* Calibration Buttons */
+        .calibration-point {
+            width: 20px;
+            height: 20px;
+            background: blue;
+            border-radius: 50%;
+            position: fixed;
+            cursor: pointer;
+            z-index: 1000;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Eye Tracking Demo</h1>
+    <p>1. Allow camera access.<br>2. Click each blue dot 5 times while looking at it.<br>3. Move your eyes to control the red dot.</p>
+    
+    <div id="gazeDot"></div>
+
+    <div class="calibration-point" style="top: 50px; left: 50px;" onclick="calibrate(this)"></div>
+    <div class="calibration-point" style="top: 50px; right: 50px;" onclick="calibrate(this)"></div>
+    <div class="calibration-point" style="bottom: 50px; left: 50px;" onclick="calibrate(this)"></div>
+    <div class="calibration-point" style="bottom: 50px; right: 50px;" onclick="calibrate(this)"></div>
+    <div class="calibration-point" style="top: 50%; left: 50%; transform: translate(-50%, -50%);" onclick="calibrate(this)"></div>
+
+    <script>
+        let clicks = 0;
+
+        window.onload = async function() {
+            // initializing webgazer js 
+
+            await webgazer.setRegression('ridge') 
+                .setGazeListener(function(data, clock) {
+                    if (data == null) return;
+                    
+                    //red dot only comes after clicking on teh cam.. need to fix that
+                    const gazeDot = document.getElementById('gazeDot');
+                    gazeDot.style.display = 'block';
+                    gazeDot.style.left = data.x + 'px';
+                    gazeDot.style.top = data.y + 'px';
+                })
+                .begin();
+
+            // Turn off the default video preview (optional)
+            webgazer.showVideoPreview(true); 
+            webgazer.showPredictionPoints(false); 
+        };
+
+        // 2. Simple Calibration Logic
+        function calibrate(element) {
+            clicks++;
+            let opacity = 1 - (clicks % 5) * 0.2;
+            element.style.opacity = opacity;
+
+            if (clicks >= 25) {
+                alert("Calibration Complete! Look around.");
+                document.querySelectorAll('.calibration-point').forEach(el => el.style.display = 'none');
+                webgazer.showVideoPreview(false); // Hide camera feed after setup
+            }
+        }
+    </script>
+</body>
+</html>
